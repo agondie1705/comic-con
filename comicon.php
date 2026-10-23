@@ -2,92 +2,90 @@
 //mostrar errores
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-try {
 $nombre = "";
 $edad = 0;
 $entrada = "";
 $talleres = [];
 $precioTotal = 0;
+$inscripcionCorrecta = false;
+$estado = "fallo";
+try {
 //depuracion nombre
-if (isset($_POST['nombre'])) {
-    $nombre = $_POST['nombre'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $nombre = trim($_POST['nombre'] ?? "");
     //no puede estar vacio
-    if (empty($nombre)) {
+    if ($nombre === "") {
         throw new Exception("El nombre no puede estar vacío.");
         //solo puede tener letras y espacios
-    } elseif (!preg_match("/^[a-zA-Z ]*$/", $nombre)) {
+    } elseif (!preg_match("/^[a-zA-ZÁÉÍÓÚáéíóúÑñ ]+$/u", $nombre)) {
         throw new Exception("El nombre solo puede contener letras y espacios.");
     } else {
-        echo "Nombre válido: " . htmlspecialchars($nombre);
+        $nombre = htmlspecialchars($nombre, ENT_QUOTES, 'UTF-8');
     }
-}
 //depuracion edad
-if (isset($_POST['edad'])) {
-    $edad = $_POST['edad'];
+    $edad = $_POST['edad'] ?? "";
     //no puede estar vacio
-    if (empty($edad)) {
+    if ($edad === "") {
         throw new Exception("La edad no puede estar vacía.");
-        //solo puede tener numeros
-    } elseif (!is_numeric($edad)) {
-        throw new Exception("La edad solo puede contener números.");
-    }else if($edad<0 || $edad>120){
-        throw new Exception("La edad debe estar entre 0 y 120.");
+    //no puede tener decimales
+    }elseif (filter_var($edad, FILTER_VALIDATE_INT) === false) {
+        throw new Exception("La edad debe ser un número entero.");
+    }else if($edad<1 || $edad>120){
+        throw new Exception("La edad debe estar entre 1 y 120.");
     }else {
         echo "Edad válida: " . htmlspecialchars($edad);
     }
-}
 //depuracion tipo de entrada
-if (isset($_POST['entrada'])) {
-    $entrada = $_POST['entrada'];
+    $entrada = $_POST['entrada'] ?? "";
     if ($entrada != "general" && $entrada != "VIP" && $entrada != "infantil") {
         throw new Exception("Tipo de entrada no válido.");
     } else {
         echo "Entrada válida: " . htmlspecialchars($entrada);
     }
-}
 //restriccion de edad
-if ($edad < 18 && $entrada == "VIP") {
-    throw new Exception("La entrada VIP está restringida a mayores de edad");
-}
+    if ($edad < 18 && $entrada == "VIP") {
+        throw new Exception("La entrada VIP está restringida a mayores de edad");
+    }
 //depuracion talleres
-$talleres = [];
-if (isset($_POST['taller_videojuegos'])) {
-    $talleres['videojuegos'] = 10;
-}
-if (isset($_POST['taller_cosplay'])) {
-    $talleres['cosplay'] = 15;
-}
-if (isset($_POST['taller_rol'])) {
-    $talleres['rol'] = 5;
-}
+    $talleres = [];
+    if (isset($_POST['taller_videojuegos'])) {
+        $talleres['videojuegos'] = 10;
+    }
+    if (isset($_POST['taller_cosplay'])) {
+        $talleres['cosplay'] = 15;
+    }
+    if (isset($_POST['taller_rol'])) {
+        $talleres['rol'] = 5;
+    }
 //precio base
-function calcularPrecioBase(string $tipo): int {
-    switch ($tipo) {
-        case "general":
-            return 30;
-        case "VIP":
-            return 60;
-        case "infantil":
-            return 10;
-        default:
-            return 0;
+    function calcularPrecioBase(string $tipo): int {
+        switch ($tipo) {
+            case "general":
+                return 30;
+            case "VIP":
+                return 60;
+            case "infantil":
+                return 10;
+            default:
+                return 0;
+        }
     }
-}
 //calculo precio total
-function procesarInscripcion(string $entrada, array $talleres): int {
-    $precioTotal = calcularPrecioBase($entrada);
-    foreach ($talleres as $precio) {
-        $precioTotal = $precioTotal + $precio;
+    function procesarInscripcion(string $entrada, array $talleres): int {
+        $precioTotal = calcularPrecioBase($entrada);
+        foreach ($talleres as $precio) {
+            $precioTotal = $precioTotal + $precio;
+        }
+        return $precioTotal;
     }
-    return $precioTotal;
+    $precioTotal = procesarInscripcion($entrada, $talleres);
+    $inscripcionCorrecta = true;
+    $estado = "éxito";
 }
-$precioTotal = procesarInscripcion($entrada, $talleres);
-echo "Precio total: " . $precioTotal . "€";
-//registro en log
 } catch (Exception $e) {
     echo $e->getMessage();
 } finally {
-    error_log(date("Y-m-d H:i:s") . " - Inscripción procesada");
+    error_log(date("Y-m-d H:i:s") . " - Inscripción: " . $estado);
 }
 ?>
 <!DOCTYPE html>
@@ -114,12 +112,25 @@ echo "Precio total: " . $precioTotal . "€";
         <option value="infantil">infantil</option>
     </select><br><br>
     <input type="checkbox" id="taller_videojuegos" name="taller_videojuegos" value="taller_videojuegos">
-    <label for="talleres_videojuegos">torneo videojuegos (10€)</label> <br>
+    <label for="taller_videojuegos">torneo videojuegos (10€)</label> <br>
     <input type="checkbox" id="taller_cosplay" name="taller_cosplay" value="taller_cosplay">
-    <label for="talleres_cosplay">torneo cosplay (15€)</label> <br>
+    <label for="taller_cosplay">torneo cosplay (15€)</label> <br>
     <input type="checkbox" id="taller_rol" name="taller_rol" value="taller_rol">
     <label for="taller_rol">rol en vivo (5€)</label> <br>
     <button type="submit">enviar</button>
     </form>
+
+    <?php if ($inscripcionCorrecta): ?>
+        <h2>Inscripción realizada correctamente</h2>
+        <p>Nombre: <?php echo $nombre; ?></p>
+        <p>Edad: <?php echo $edad; ?></p>
+        <p>Tipo de entrada: <?php echo htmlspecialchars($entrada); ?></p>
+        <p>Precio base: <?php echo calcularPrecioBase($entrada); ?>€</p>
+        <p>Talleres seleccionados:</p>
+        <?php foreach ($talleres as $nombreTaller => $precio): ?>
+            <p><?php echo htmlspecialchars($nombreTaller); ?>: <?php echo $precio; ?>€</p>
+        <?php endforeach; ?>
+        <p>Precio total: <?php echo $precioTotal; ?>€</p>
+    <?php endif; ?>
 </body>
 </html>
