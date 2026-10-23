@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <label for="taller_rol">rol en vivo (5€)</label> <br>
     <button type="submit">enviar</button>
     </form>
-
+    <!--mostramos todo por pantalla-->
     <?php if ($inscripcionCorrecta): ?>
         <h2>Inscripción realizada correctamente</h2>
         <p>Nombre: <?php echo $nombre; ?></p>
